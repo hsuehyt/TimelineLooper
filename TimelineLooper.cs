@@ -28,7 +28,7 @@ public class TimelineLooper : MonoBehaviour
 
     void Update()
     {
-        // SPACE toggles loop mode
+        // SPACE toggles loop mode (Unity in focus)
         if (Input.GetKeyDown(KeyCode.Space))
         {
             loopEnabled = !loopEnabled;
@@ -50,6 +50,21 @@ public class TimelineLooper : MonoBehaviour
             if (!loopEnabled)
                 skipOnce = true;
         }
+    }
+
+
+    // -------------------------------------------
+    // Background hotkey support (called externally)
+    // -------------------------------------------
+    public void ToggleLoopFromOutside()
+    {
+        loopEnabled = !loopEnabled;
+        ApplyToggleToObjects(loopEnabled);
+
+        if (!loopEnabled)
+            skipOnce = true;
+
+        UnityEngine.Debug.Log("[TimelineLooper] Loop = " + loopEnabled);
     }
 
 
