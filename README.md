@@ -1,108 +1,133 @@
 # TimelineLooper
 
-A simple, reliable Unity Timeline looping system using Timeline Signals.
-It lets the Timeline loop endlessly between two signal markers (loopStart → loopEnd), allows the user to break out of the loop at any time, and also provides a Loop Toggle that can automatically activate/deactivate any GameObjects in the scene.
+TimelineLooper allows a Unity Timeline to loop between two user-defined signal points: **loopStart** and **loopEnd**.
+It is designed for immersive projection setups, installations, and gallery environments where a Timeline must loop indefinitely until manually interrupted.
 
-This system works no matter where the loopStart and loopEnd signals are placed, as long as loopStart occurs before loopEnd.
+This package now supports **background keyboard input** (Space key) through a separate **GlobalHotKeyManager.cs** so the loop can be toggled even when Unity is not in focus (for example when Resolume Arena is the active foreground application).
 
 ---
 
 ## Features
 
-• Loop any section of the Timeline using two signals
-• Press Space to toggle looping ON/OFF
-• Inspector toggle also controls looping
-• Assign any number of GameObjects to automatically enable/disable based on loop state
-• When looping is OFF, the Timeline skips the loop and plays forward normally
-• When looping is ON, the Timeline repeats between loopStart and loopEnd
-• Looping can be resumed at any time
-• Fully compatible with Timeline Signals and Signal Receiver
-• No custom PlayableGraph or Timeline hacking required
+• Loop any Timeline section using two Signals
+• Press **Space** to toggle looping ON/OFF
+• Space key works:
+– when Unity is focused (normal Input)
+– when Unity is NOT focused (via GlobalHotKeyManager)
+• Allows skipping the next loop once when loopEnabled is turned off
+• Automatically re-applies object activation states when changed from Inspector
+• Supports toggling any GameObjects in a list (such as subtitles, UI elements, etc.)
 
 ---
 
 ## How It Works
 
-1. The Timeline starts at frame 0 and plays normally.
-2. At the loopStart signal, the script records the current time.
-3. At the loopEnd signal:
-   • If looping is enabled, the playhead jumps back to loopStart
-   • If looping is disabled, playback continues forward
-4. Pressing Space toggles looping ON/OFF.
-5. The Inspector toggle also allows manual loop control at runtime.
-6. Any GameObjects in the toggle list will automatically activate when looping is ON and deactivate when looping is OFF.
+### LoopStart Signal
+
+Place a Signal on the Timeline where the loop should begin.
+It calls:
+`SetLoopStart()`
+
+### LoopEnd Signal
+
+Place another Signal later in the Timeline where looping should end.
+It calls:
+`OnLoopEnd()`
+
+When the Timeline hits loopEnd:
+
+• If **loopEnabled = true** → Timeline jumps back to loopStart
+• If **loopEnabled = false** → Timeline continues normally
+• If loopEnabled was just turned off, the loop is skipped **once**, allowing a clean exit
 
 ---
 
-## Loop Toggle Behavior
+## Space Key Control
 
-Loop toggle (loopEnabled) starts ON by default.
+### When Unity Game Window IS focused
 
-Press Space:
-• If looping is ON → it turns OFF and the current loop is skipped
-• If looping is OFF → it turns ON and looping resumes at the next loopEnd
+The original TimelineLooper.cs uses:
+Input.GetKeyDown(KeyCode.Space)
 
-Inspector (Loop Enabled):
-• Changing it during gameplay immediately updates loop state
-• Turning it OFF hides the assigned GameObjects and skips the current loop once
-• Turning it ON shows the assigned GameObjects and restores looping
+### When Unity Game Window is NOT focused
 
----
+(GlobalHotKeyManager.cs detects the key via Windows low-level system hook)
 
-## GameObject Toggle List
+The manager calls:
+`ToggleLoopFromOutside()`
+inside TimelineLooper.
 
-The script contains a section called “Objects Affected By Loop Toggle.”
-
-You can drag any number of GameObjects into this list, such as:
-• Subtitles
-• UI canvases
-• Cameras
-• Props
-• Effects
-• Scene hints or prompts
-
-Whenever loopEnabled changes, these objects instantly turn ON/OFF.
+Both inputs trigger the same behavior.
 
 ---
 
-## Setup Instructions
+## GlobalHotKeyManager Integration
 
-1. Add a PlayableDirector to a GameObject.
-2. Add a Signal Receiver to the same GameObject.
-3. Add the TimelineLooper script to the same GameObject.
-4. In your Timeline:
-   • Add a signal named “loopStart”
-   • Add a signal named “loopEnd”
-5. In the Signal Receiver inspector:
-   • loopStart → TimelineLooper → SetLoopStart
-   • loopEnd → TimelineLooper → OnLoopEnd
-6. In the TimelineLooper inspector:
-   • Assign the PlayableDirector
-   • Add any GameObjects you want to be toggled when loop state changes
-7. Enter Play Mode. Looping works automatically.
+**GlobalHotKeyManager.cs** installs a Windows low-level keyboard hook (WH_KEYBOARD_LL).
+It listens for the **Space bar globally**, even if:
+• Resolume Arena is the foreground window
+• Unity is running in background
+• The game window does not have focus
 
----
+When Space is detected:
+• The manager finds TimelineLooper in the scene
+• Calls `ToggleLoopFromOutside()`
+• Loop mode toggles cleanly
 
-## Skipping or Resuming a Loop
-
-Keyboard:
-• Press Space to toggle looping ON/OFF
-
-Inspector:
-• Turn the “Loop Enabled” checkbox ON/OFF at runtime
-
-GameObjects in the toggle list will update automatically.
+This keeps TimelineLooper.cs simple:
+all OS-specific code lives in **GlobalHotKeyManager.cs**.
 
 ---
 
-## Requirements
+## Inspector Options
 
-• Unity Timeline package
-• Timeline Signals enabled
-• PlayableDirector and Signal Receiver on the same GameObject
+### Loop Enabled (default ON)
+
+Master switch for looping behavior.
+Turning it OFF also triggers one “skip loop once” behavior during the next OnLoopEnd.
+
+### Toggle Objects
+
+A list of GameObjects that should activate/deactivate according to loopEnabled.
+For example:
+• Subtitle group
+• UI overlay
+• Lighting objects
+• Audio cue objects
+
+When loop is ON → Objects become active
+When loop is OFF → Objects become inactive
 
 ---
 
-## License
+## Public Method for External Control
 
-MIT License
+TimelineLooper includes:
+
+`ToggleLoopFromOutside()`
+
+This is called by GlobalHotKeyManager.cs when the user presses Space while Unity is not focused.
+It performs the exact same behavior as the internal Input.GetKeyDown.
+
+---
+
+## Recommended Setup
+
+1. Add **TimelineLooper.cs** to any GameObject with a PlayableDirector
+2. Add **GlobalHotKeyManager.cs** to an object in your Master Scene
+3. Add two Signals to your Timeline:
+   – loopStart → calls SetLoopStart
+   – loopEnd → calls OnLoopEnd
+4. Run the project
+5. Press Space:
+   – When Unity is focused → loop toggles
+   – When other software is focused (e.g., Resolume) → loop still toggles
+
+---
+
+## Notes
+
+• Windows only (global hook uses Win32 API)
+• Works in both Editor (focus only) and Standalone build (focus + background)
+• Only one GlobalHotKeyManager should exist in the scene
+• TimelineLooper does not contain any OS-specific code
